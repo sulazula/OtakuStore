@@ -1,7 +1,7 @@
 package pl.sulazula.product_service.controller;
 
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,8 +10,11 @@ import pl.sulazula.product_service.entity.types.Type;
 import pl.sulazula.product_service.service.KafkaProducer;
 import pl.sulazula.product_service.service.ProductService;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/products")
 public class ProductController {
@@ -65,13 +68,37 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdProduct);
     }
 
-    @PatchMapping
-    public ResponseEntity<Product> updateProduct(@RequestBody Product product) {
+    @PatchMapping("/{id}")
+    public ResponseEntity<Product> patchProduct(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> updates
+    ) {
+        log.info("starting update");
+        Product product = service.findById(id);
+        if (product == null) {
+            return ResponseEntity.notFound().build();
+        }
+        log.info("product found with id {}", id);
 
-        Product updatedProduct = service.save(product);
-        kafkaProducer.sendUpdated(updatedProduct);
-        return ResponseEntity.ok(updatedProduct);
+        updates.forEach((key, value) -> {
+            switch (key) {
+                case "name" -> product.setName((String) value);
+                case "description" -> product.setDescription((String) value);
+                case "animeName" -> product.setAnimeName((String) value);
+                case "amount" -> product.setAmount((Integer) value);
+                case "price" -> product.setPrice(new BigDecimal(value.toString()));
+                case "type" -> product.setType(Type.valueOf(value.toString()));
+                case "imageUrl" -> product.setImageUrl((String) value);
+                case "attributes" -> product.setAttributes((Map<String, Object>) value);
+            }
+        });
+        log.info("product updated");
+        Product updated = service.save(product);
+        kafkaProducer.sendUpdated(updated);
+        log.info("database updated");
+        return ResponseEntity.ok(updated);
     }
+
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Product> deleteProduct(@PathVariable Long id) {

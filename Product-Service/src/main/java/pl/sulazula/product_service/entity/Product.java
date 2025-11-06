@@ -21,7 +21,7 @@ public class Product {
     @NotNull(message = "name is required.")
     private String name;
     private String description;
-    private String anime_name;
+    private String animeName;
     @NotNull(message = "amount is required.")
     private Integer amount;
     @NotNull(message = "type is required.")
